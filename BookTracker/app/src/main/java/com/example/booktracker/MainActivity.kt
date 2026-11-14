@@ -4,14 +4,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import com.example.booktracker.model.Book
+import com.example.booktracker.ui.catalog.CatalogScreen
 import com.example.booktracker.ui.theme.BookTrackerTheme
 
 class MainActivity : ComponentActivity() {
@@ -20,22 +15,22 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             BookTrackerTheme {
-                BookTrackerApp()
+                BookTrackerContent()
             }
         }
     }
 }
 
 @Composable
-fun BookTrackerApp(modifier: Modifier = Modifier) {
-    Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(text = "КнигоТрекер")
-        }
-    }
+fun BookTrackerContent() {
+    val sampleBooks = listOf(
+        Book(1L, "Чистый код", "Роберт Мартин", 4.8, "Программирование"),
+        Book(2L, "Дюна", "Фрэнк Герберт", 4.9, "Фантастика"),
+        Book(3L, "Kotlin в действии", "Дмитрий Жемеров", 4.7, "Программирование"),
+        Book(4L, "1984", "Джордж Оруэлл", 4.85, "Антиутопия"),
+        Book(5L, "Солярис", "Станислав Лем", 4.6, "Фантастика"),
+        Book(6L, "О дивный новый мир", "Олдос Хаксли", 4.5, "Антиутопия")
+    )
+
+    CatalogScreen(books = sampleBooks)
 }
