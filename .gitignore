@@ -6,6 +6,8 @@
 .gradle/
 build/
 **/build/
+out/
+**/out/
 
 # Android Studio / IntelliJ IDEA
 .idea/
