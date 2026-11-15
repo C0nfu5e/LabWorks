@@ -5,5 +5,6 @@ data class Book(
     val title: String,
     val author: String,
     val rating: Double,
-    val genre: String
+    val genre: String,
+    val description: String = "Описание книги скоро появится."
 )
