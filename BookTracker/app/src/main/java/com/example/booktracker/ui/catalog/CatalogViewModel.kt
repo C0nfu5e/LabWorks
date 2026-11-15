@@ -2,90 +2,101 @@ package com.example.booktracker.ui.catalog
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.booktracker.data.MockBookDataSource
-import com.example.booktracker.model.Book
-import kotlinx.coroutines.delay
+import com.example.booktracker.data.BookRepository
+import com.example.booktracker.data.InMemoryBookRepository
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-class CatalogViewModel : ViewModel() {
+private data class FilterOptions(
+    val genre: String? = null,
+    val sortBy: SortBy = SortBy.Title,
+    val onlyFavorites: Boolean = false
+)
 
-    private val _uiState = MutableStateFlow<CatalogUiState>(CatalogUiState.Loading)
-    val uiState: StateFlow<CatalogUiState> = _uiState.asStateFlow()
+@OptIn(FlowPreview::class)
+class CatalogViewModel(
+    private val repository: BookRepository = InMemoryBookRepository
+) : ViewModel() {
 
-    private var allBooks: List<Book> = emptyList()
-    private var genres: List<String> = emptyList()
-    private var filter: CatalogFilter = CatalogFilter()
-    private var onlyFavorites: Boolean = false
-    private val favoriteIds = mutableSetOf<Long>()
+    private val searchQuery = MutableStateFlow("")
+    val query: StateFlow<String> = searchQuery.asStateFlow()
 
-    init {
-        loadBooks()
-        viewModelScope.launch {
-            MockBookDataSource.favoriteIds.collect { ids ->
-                favoriteIds.clear()
-                favoriteIds.addAll(ids)
-                if (allBooks.isNotEmpty()) emitSuccess()
-            }
-        }
-    }
+    private val filterOptions = MutableStateFlow(FilterOptions())
 
-    fun loadBooks() {
-        viewModelScope.launch {
-            _uiState.value = CatalogUiState.Loading
-            try {
-                delay(400) // имитация загрузки
-                allBooks = MockBookDataSource.books
-                genres = allBooks.map { it.genre }.distinct().sorted()
-                emitSuccess()
-            } catch (e: Exception) {
-                _uiState.value = CatalogUiState.Error(
-                    e.message ?: "Не удалось загрузить каталог"
-                )
-            }
-        }
-    }
+    private val debouncedQuery = searchQuery
+        .debounce(300L)
+        .distinctUntilChanged()
 
-    fun onSearchQueryChanged(query: String) {
-        filter = filter.copy(query = query)
-        emitSuccess()
-    }
+    val uiState: StateFlow<CatalogUiState> = combine(
+        repository.observeBooks(),
+        debouncedQuery,
+        filterOptions,
+        repository.observeFavoriteIds()
+    ) { books, queryText, options, favoriteIds ->
+        val currentFilter = CatalogFilter(
+            query = queryText,
+            genre = options.genre,
+            sortBy = options.sortBy
+        )
 
-    fun onGenreSelected(genre: String?) {
-        filter = filter.copy(genre = genre)
-        emitSuccess()
-    }
-
-    fun onSortChanged(sortBy: SortBy) {
-        filter = filter.copy(sortBy = sortBy)
-        emitSuccess()
-    }
-
-    fun onToggleOnlyFavorites() {
-        onlyFavorites = !onlyFavorites
-        emitSuccess()
-    }
-    fun onToggleFavorite(bookId: Long) {
-        viewModelScope.launch {
-            MockBookDataSource.toggleFavorite(bookId)
-        }
-    }
-    private fun emitSuccess() {
-        val base = allBooks.apply(filter)
-        val result = if (onlyFavorites) {
+        val base = books.apply(currentFilter)
+        val filtered = if (options.onlyFavorites) {
             base.filter { it.id in favoriteIds }
         } else {
             base
         }
 
-        _uiState.value = CatalogUiState.Success(
-            books = result,
-            genres = genres,
-            filter = filter,
-            onlyFavorites = onlyFavorites,
-            favoriteIds = favoriteIds.toSet()
+        CatalogUiState.Success(
+            books = filtered,
+            genres = books.map { it.genre }.distinct().sorted(),
+            filter = currentFilter,
+            onlyFavorites = options.onlyFavorites,
+            favoriteIds = favoriteIds
+        ) as CatalogUiState
+    }
+        .catch { e ->
+            emit(CatalogUiState.Error(e.message ?: "Ошибка загрузки каталога"))
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = CatalogUiState.Loading
         )
+
+    fun onSearchQueryChanged(newQuery: String) {
+        searchQuery.value = newQuery
+    }
+
+    fun onGenreSelected(genre: String?) {
+        filterOptions.update { it.copy(genre = genre) }
+    }
+
+    fun onSortChanged(sortBy: SortBy) {
+        filterOptions.update { it.copy(sortBy = sortBy) }
+    }
+
+    fun onToggleOnlyFavorites() {
+        filterOptions.update { it.copy(onlyFavorites = !it.onlyFavorites) }
+    }
+
+    fun onToggleFavorite(bookId: Long) {
+        viewModelScope.launch {
+            repository.toggleFavorite(bookId)
+        }
+    }
+
+    fun retry() {
+        // Реактивный поток обновляется автоматически, можно сбросить поиск при необходимости
+        searchQuery.value = ""
     }
 }

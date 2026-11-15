@@ -46,16 +46,18 @@ fun CatalogRoute(
     viewModel: CatalogViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val currentQuery by viewModel.query.collectAsStateWithLifecycle()
 
     CatalogScreen(
         uiState = uiState,
+        searchQuery = currentQuery,
         onBookClick = onBookClick,
         onSearchQueryChanged = viewModel::onSearchQueryChanged,
         onGenreSelected = viewModel::onGenreSelected,
         onSortChanged = viewModel::onSortChanged,
         onToggleOnlyFavorites = viewModel::onToggleOnlyFavorites,
         onToggleFavorite = viewModel::onToggleFavorite,
-        onRetry = viewModel::loadBooks,
+        onRetry = viewModel::retry,
         modifier = modifier
     )
 }
@@ -64,6 +66,7 @@ fun CatalogRoute(
 @Composable
 fun CatalogScreen(
     uiState: CatalogUiState,
+    searchQuery: String,
     onBookClick: (Book) -> Unit,
     onSearchQueryChanged: (String) -> Unit,
     onGenreSelected: (String?) -> Unit,
@@ -145,7 +148,7 @@ fun CatalogScreen(
                 is CatalogUiState.Success -> {
                     Column(modifier = Modifier.fillMaxSize()) {
                         SearchBar(
-                            query = uiState.filter.query,
+                            query = searchQuery, // <-- вместо uiState.filter.query
                             onQueryChange = onSearchQueryChanged,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                         )
@@ -235,6 +238,7 @@ private fun CatalogScreenPreview() {
             onSortChanged = {},
             onToggleOnlyFavorites = {},
             onToggleFavorite = {},
+            searchQuery = "",
             onRetry = {}
         )
     }
