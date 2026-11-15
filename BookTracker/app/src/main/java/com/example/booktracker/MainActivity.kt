@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.example.booktracker.data.MockBookDataSource
+import com.example.booktracker.ui.catalog.CatalogRoute
 import com.example.booktracker.ui.catalog.CatalogScreen
 import com.example.booktracker.ui.detail.BookDetailRoute
 import com.example.booktracker.ui.theme.BookTrackerTheme
@@ -32,8 +33,7 @@ fun BookTrackerContent() {
 
     val currentBookId = selectedBookId
     if (currentBookId == null) {
-        CatalogScreen(
-            books = MockBookDataSource.books,
+        CatalogRoute(
             onBookClick = { book -> selectedBookId = book.id }
         )
     } else {
