@@ -2,9 +2,14 @@ package com.example.booktracker.data
 
 import com.example.booktracker.model.Book
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 
 object MockBookDataSource {
-    private val favoriteIds = mutableSetOf<Long>()
+    private val _favoriteIds = MutableStateFlow<Set<Long>>(emptySet())
+    val favoriteIds: StateFlow<Set<Long>> = _favoriteIds.asStateFlow()
 
     val books = listOf(
         Book(1L, "Чистый код", "Роберт Мартин", 4.8, "Программирование", "Классическое руководство по написанию чистого, поддерживаемого и понятного кода."),
@@ -42,16 +47,20 @@ object MockBookDataSource {
             ?: throw NoSuchElementException("Книга с id=$bookId не найдена")
     }
 
-    fun isFavorite(bookId: Long): Boolean = bookId in favoriteIds
+    fun isFavorite(bookId: Long): Boolean = bookId in _favoriteIds.value
 
     suspend fun toggleFavorite(bookId: Long): Boolean {
-        delay(300)
-        return if (bookId in favoriteIds) {
-            favoriteIds.remove(bookId)
-            false
-        } else {
-            favoriteIds.add(bookId)
-            true
+        delay(200)
+        var nowFavorite = false
+        _favoriteIds.update { current ->
+            if (bookId in current) {
+                nowFavorite = false
+                current - bookId
+            } else {
+                nowFavorite = true
+                current + bookId
+            }
         }
+        return nowFavorite
     }
 }

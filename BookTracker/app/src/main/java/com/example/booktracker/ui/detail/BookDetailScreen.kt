@@ -43,102 +43,40 @@ import com.example.booktracker.data.MockBookDataSource
 import com.example.booktracker.model.Book
 import com.example.booktracker.ui.theme.BookTrackerTheme
 import kotlinx.coroutines.launch
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+
 
 @Composable
 fun BookDetailRoute(
-    bookId: Long,
     onBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: BookDetailViewModel = viewModel()
 ) {
-    var book by remember { mutableStateOf<Book?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
-    var isFavorite by remember { mutableStateOf(false) }
-    var isFavoriteUpdating by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-    var reloadTrigger by remember { mutableIntStateOf(0) }
-    var simulateErrorNextLoad by remember { mutableStateOf(false) }
-
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val coroutineScope = rememberCoroutineScope()
 
-    // 5. Очистка callback API (системная кнопка "Назад") через DisposableEffect
-    val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
-    val currentOnBack by rememberUpdatedState(onBack)
-    DisposableEffect(backDispatcher) {
-        val callback = object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                currentOnBack()
-            }
-        }
-        backDispatcher?.addCallback(callback)
-        onDispose {
-            callback.remove()
-        }
-    }
-
-    // 2. Загрузка книги через LaunchedEffect(bookId)
-    LaunchedEffect(bookId, reloadTrigger) {
-        isLoading = true
-        try {
-            val loaded = MockBookDataSource.getBookById(
-                bookId = bookId,
-                simulateError = simulateErrorNextLoad
-            )
-            simulateErrorNextLoad = false
-            book = loaded
-            isFavorite = MockBookDataSource.isFavorite(bookId)
-        } catch (e: Exception) {
-            simulateErrorNextLoad = false
-            errorMessage = e.message ?: "Неизвестная ошибка загрузки"
-        } finally {
-            isLoading = false
-        }
-    }
-
-    // 3. Отображение ошибки через Snackbar и очистка после показа
-    LaunchedEffect(errorMessage) {
-        val message = errorMessage
+    LaunchedEffect(uiState.errorMessage) {
+        val message = uiState.errorMessage
         if (message != null) {
             snackbarHostState.showSnackbar(message)
-            errorMessage = null
+            viewModel.onErrorShown()
         }
     }
 
     BookDetailScreen(
-        book = book,
-        isLoading = isLoading,
-        isFavorite = isFavorite,
-        isFavoriteUpdating = isFavoriteUpdating,
+        book = uiState.book,
+        isLoading = uiState.isLoading,
+        isFavorite = uiState.isFavorite,
+        isFavoriteUpdating = uiState.isFavoriteUpdating,
         snackbarHostState = snackbarHostState,
         onBack = onBack,
-        // 4. Кнопка "В избранное" запускает suspend-операцию через rememberCoroutineScope
-        onToggleFavorite = {
-            if (!isFavoriteUpdating) {
-                coroutineScope.launch {
-                    isFavoriteUpdating = true
-                    try {
-                        val updatedState = MockBookDataSource.toggleFavorite(bookId)
-                        isFavorite = updatedState
-                        snackbarHostState.showSnackbar(
-                            if (updatedState) "Добавлено в избранное" else "Удалено из избранного"
-                        )
-                    } catch (e: Exception) {
-                        errorMessage = e.message ?: "Ошибка обновления избранного"
-                    } finally {
-                        isFavoriteUpdating = false
-                    }
-                }
-            }
-        },
-        onRetry = { reloadTrigger++ },
-        onSimulateError = {
-            simulateErrorNextLoad = true
-            reloadTrigger++
-        },
+        onToggleFavorite = viewModel::onToggleFavorite,
+        onRetry = { viewModel.loadBook(simulateError = false) },
+        onSimulateError = { viewModel.loadBook(simulateError = true) },
         modifier = modifier
     )
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookDetailScreen(

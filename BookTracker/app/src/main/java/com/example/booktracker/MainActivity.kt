@@ -5,14 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import com.example.booktracker.data.MockBookDataSource
-import com.example.booktracker.ui.catalog.CatalogRoute
-import com.example.booktracker.ui.catalog.CatalogScreen
-import com.example.booktracker.ui.detail.BookDetailRoute
+import com.example.booktracker.navigation.BookTrackerNavHost
 import com.example.booktracker.ui.theme.BookTrackerTheme
 
 class MainActivity : ComponentActivity() {
@@ -29,17 +22,5 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun BookTrackerContent() {
-    var selectedBookId by rememberSaveable { mutableStateOf<Long?>(null) }
-
-    val currentBookId = selectedBookId
-    if (currentBookId == null) {
-        CatalogRoute(
-            onBookClick = { book -> selectedBookId = book.id }
-        )
-    } else {
-        BookDetailRoute(
-            bookId = currentBookId,
-            onBack = { selectedBookId = null }
-        )
-    }
+    BookTrackerNavHost()
 }

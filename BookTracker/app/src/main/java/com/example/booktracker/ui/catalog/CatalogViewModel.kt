@@ -23,6 +23,13 @@ class CatalogViewModel : ViewModel() {
 
     init {
         loadBooks()
+        viewModelScope.launch {
+            MockBookDataSource.favoriteIds.collect { ids ->
+                favoriteIds.clear()
+                favoriteIds.addAll(ids)
+                if (allBooks.isNotEmpty()) emitSuccess()
+            }
+        }
     }
 
     fun loadBooks() {
@@ -60,16 +67,11 @@ class CatalogViewModel : ViewModel() {
         onlyFavorites = !onlyFavorites
         emitSuccess()
     }
-
     fun onToggleFavorite(bookId: Long) {
-        if (bookId in favoriteIds) {
-            favoriteIds.remove(bookId)
-        } else {
-            favoriteIds.add(bookId)
+        viewModelScope.launch {
+            MockBookDataSource.toggleFavorite(bookId)
         }
-        emitSuccess()
     }
-
     private fun emitSuccess() {
         val base = allBooks.apply(filter)
         val result = if (onlyFavorites) {
